@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supermap ARSurvey</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            position: relative;
+            background-color: #000;
+        }
+
+        #layer-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            color: #bbb;
+            font-size: 2.2em;
+            font-weight: 100;
+            transform: translate(-50%, -50%);
+        }
+
+        #layer-function {
+            visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #layer-function>#function-type {
+            overflow: hidden;
+            position: absolute;
+            left: 50%;
+            bottom: 1em;
+            width: 66%;
+            margin-bottom: -1em;
+            border-radius: 999em;
+            background-color: #fff;
+            transform: translate(-50%);
+            box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.3);
+            transition: margin 0.5s ease, opacity 0.5s ease, visibility 0.5s ease;
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        #layer-function>#function-type>ul {
+            display: flex;
+            padding: 0.5em 0;
+            width: 100%;
+        }
+
+        #layer-function>#function-type>ul>li {
+            flex-grow: 1;
+            transition: opacity 0.1s ease, transform 0.1s ease;
+        }
+
+        #layer-function>#function-type>ul>li:active {
+            opacity: 0.5;
+            transform: scale(1.35);
+        }
+
+        #layer-function>#function-type>ul>li>.icon {
+            font-size: 1.8em;
+            text-align: center;
+            line-height: 1;
+        }
+
+        #layer-function>#function-type>ul>li>.text {
+            font-size: 0.7em;
+            text-align: center;
+            line-height: 1;
+        }
+
+        #layer-function>#function-operation {
+            position: absolute;
+            left: 50%;
+            bottom: 1em;
+            width: 88%;
+            margin-bottom: -1em;
+            transform: translate(-50%);
+            transition: margin 0.5s ease, opacity 0.5s ease, visibility 0.5s ease;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        #layer-function>#function-operation>#select {
+            overflow: hidden;
+            width: 4em;
+            height: 4em;
+            padding: 1em;
+            margin: 0 auto 3em;
+            border: 0.2em dashed #fff;
+            border-radius: 999em;
+            background-color: #fff;
+            background-clip: content-box;
+            transition: opacity 0.1s ease, transform 0.1s ease;
+            box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        #layer-function>#function-operation>#select:active {
+            opacity: 0.5;
+            transform: scale(1.2);
+        }
+
+        #layer-function>#function-operation>ul {
+            overflow: hidden;
+            display: flex;
+            width: 100%;
+            height: 3.5em;
+            border-radius: 999em;
+            background-color: #fff;
+            box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        #layer-function>#function-operation>ul>li {
+            flex-grow: 1;
+            transition: opacity 0.1s ease, transform 0.5s ease;
+        }
+
+        #layer-function>#function-operation>ul>li:active {
+            opacity: 0.5;
+            transform: scale(1.35);
+        }
+
+        #layer-function>#function-operation>ul>li>.icon {
+            font-size: 1.8em;
+            text-align: center;
+            line-height: 1.94;
+        }
+
+        #layer-function>#function-panel {
+            position: absolute;
+            top: 1em;
+            left: 6%;
+            padding: 0.35em 0;
+            border-radius: 999em;
+            background-color: #fff;
+            line-height: 1;
+            box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.3);
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #layer-function>#function-panel>ul {
+            display: flex;
+        }
+
+        #layer-function>#function-panel>ul>li {
+            letter-spacing: 0.05em;
+        }
+
+        #layer-function>#function-panel>ul>li:nth-child(1) {
+            min-width: 2em;
+            text-align: right;
+        }
+
+        #layer-function>#function-panel>ul>li:nth-child(5) {
+            min-width: 2em;
+            text-align: left;
+        }
+
+        #layer-function>#function-panel>ul>li:nth-child(2),
+        #layer-function>#function-panel>ul>li:nth-child(3),
+        #layer-function>#function-panel>ul>li:nth-child(4) {
+            min-width: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 状态层: 描述程序的状态: loading、running、click to run -->
+    <div id="layer-state">loading</div>
+    <!-- 功能层: 提供程序的功能UI -->
+    <div id="layer-function">
+        <div id="function-type">
+            <ul class="clearfix">
+                <li id="type-length">
+                    <div class="icon">&#xe617;</div>
+                    <div class="text">测长</div>
+                </li>
+                <li id="type-height">
+                    <div class="icon">&#xe671;</div>
+                    <div class="text">测高</div>
+                </li>
+                <li id="type-area">
+                    <div class="icon">&#xe607;</div>
+                    <div class="text">测面</div>
+                </li>
+            </ul>
+        </div>
+        <div id="function-operation">
+            <div id="select"></div>
+            <ul class="clearfix">
+                <li id="exit">
+                    <div class="icon">&#xe7f7;</div>
+                </li>
+                <li id="cancel">
+                    <div class="icon">&#xe8aa;</div>
+                </li>
+                <li id="reset">
+                    <div class="icon">&#xe86d;</div>
+                </li>
+                <li id="done">
+                    <div class="icon">&#xe8c5;</div>
+                </li>
+            </ul>
+        </div>
+        <div id="function-panel">
+            <ul class="clearfix">
+                <li>0</li>
+                <li>.</li>
+                <li>0</li>
+                <li>0</li>
+                <li>m</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+
+        // three.js r127
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+        import { Earcut } from "./js/earcut.module.js";
+
+        // 工具箱
+        const TOOL = {
+
+            resources: {},
+
+            // 描述: 向TOOL.resource注入资源
+            initResources: async function () {
+
+                // Step 1: Promise.all加载资源
+                const resources = await Promise.all([
+
+                    // 几何类: 点
+                    new THREE.CircleGeometry(0.0075, 64).rotateX(- Math.PI / 2),
+
+                    // 网格类: 超图红
+                    new THREE.MeshBasicMaterial({ color: 0xc62922, side: THREE.DoubleSide }),
+
+                    // 网格类: 黄色
+                    new THREE.MeshBasicMaterial({ color: 0xffb728, side: THREE.DoubleSide }),
+
+                    // 网格类: 透明红
+                    new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, wireframe: false, transparent: true, opacity: 0.3 }),
+
+                    // 网格类: 透明黑
+                    new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, wireframe: false, transparent: true, opacity: 0.3 }),
+
+                    // 线条类: 超图红-实线
+                    new THREE.LineBasicMaterial({ color: 0xc62922, linewidth: 2, side: THREE.DoubleSide }),
+
+                    // 线条类: 超图红-虚线
+                    new THREE.LineDashedMaterial({ color: 0xc62922, linewidth: 2, dashSize: 0.01, gapSize: 0.01, scale: 1 }),
+
+                    // 字体类:
+                    new Promise(resolve => { new THREE.FontLoader().load("./font/helvetiker_regular.typeface.json", resolve); }),
+
+                    // 延时函数: 用于推迟该程序
+                    new Promise(resolve => window.setTimeout(() => resolve(null), 750)),
+                ]);
+
+                // Step 2: 挂载资源至TOOL.resources
+                const resources_mount = await new Promise(resolve => {
+
+                    [
+
+                        // 几何类: 点
+                        this.resources.geometry_point,
+
+                        // 网格类: 超图红
+                        this.resources.material_mesh_c629221,
+
+                        // 网格类: 黄色
+                        this.resources.material_mesh_ffb7281,
+
+                        // 网格类: 透明红
+                        this.resources.material_mesh_ff000003,
+
+                        // 网格类: 透明黑
+                        this.resources.material_mesh_00000002,
+
+                        // 线条类: 超图红-实线
+                        this.resources.material_solidline_c629221,
+
+                        // 线条类: 超图红-虚线
+                        this.resources.material_dashedline_c629221,
+
+                        // 字体类:
+                        this.resources.font_droidsans_normal,
+
+                    ] = resources;
+
+                    resolve(true);
+
+                });
+
+                // Step 3: 返回挂载状态
+                return Promise.resolve(resources_mount);
+
+            },
+
+            // 描述: 创建一个 mesh: 靶心
+            createReticule: function () {
+
+                // Step 1: 创建容器
+                const container = new THREE.Group();
+
+                // Step 2: 创建「靶心素材」, 塞进容器
+                const mesh = new THREE.Mesh(
+
+                    this.resources.geometry_point,
+                    this.resources.material_mesh_c629221
+
+                );
+
+                container.add(mesh);
+
+                // Step 3: 创建「靶环素材」, 塞进容器
+                let radius_inner = 0.06;
+                let radius_outer = 0.066;
+                let segments_theta = 64;
+                let segments_phi = 1;
+                let theta_start = 0;
+                let theta_length = Math.PI * 4 / 15;
+                let theta_spacing = theta_length / 2;
+
+                const config = [
+
+                    radius_inner,   // 内圆半径
+                    radius_outer,   // 外圆半径
+                    segments_theta, // 分段数
+                    segments_phi,   // 不懂, 取用默认值8
+                    theta_start,    // 起始角度
+                    theta_length,   // 弧段的长度
+                    theta_spacing,  // 弧段间隔的长度
+
+                ];
+
+                for (let i = 0; i < 5; i++) {
+
+                    config[4] = i * (theta_length + theta_spacing);
+
+                    const geometry = new THREE.RingGeometry(...config).rotateX(- Math.PI / 2);
+                    const mesh = new THREE.Mesh(geometry, this.resources.material_mesh_c629221);
+
+                    container.add(mesh);
+
+                }
+
+                // Step 4: 输出容器
+                return container;
+
+            },
+
+            // 描述: 创建一个 mesh: 红点
+            createPoint: function () {
+
+                return new THREE.Mesh(this.resources.geometry_point, this.resources.material_mesh_c629221);
+
+            },
+
+            // 描述: 创建一个 mesh: 红线
+            // 参数:
+            //     @ start: THREE.Vector3实例, 红线的起点
+            //     @ end  : THREE.Vector3实例, 红线的终点
+            // 返回: Object, { mesh, distance }
+            //     @ line    : THREE.Mesh实例, 素材
+            //     @ distance: Number       , 起点至终点的距离
+            createLine: function (start, end) {
+
+                const distance = end.distanceTo(start);
+                const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+                const line = new THREE.Line(geometry, this.resources.material_solidline_c629221);
+
+                return { line, distance };
+
+            },
+
+            // 描述: 创建一个 mesh: 文字
+            // 参数:
+            //     @ text: String, 文字
+            createText: function (text) {
+
+                const config = {
+
+                    font: this.resources.font_droidsans_normal, // 字体族
+                    size: 0.075,                                // 字体大小
+                    height: 0.00001,                            // 挤压深度
+                    bevelEnabled: false,                        // 是否启用斜边
+                    curveSegments: 2,                           // 分段数(该值会显著影响创建速度)
+
+                };
+                const geometry_text = new THREE.TextGeometry(text, config);
+                const mesh_text = new THREE.Mesh(geometry_text, this.resources.material_mesh_ffb7281);
+
+                return mesh_text;
+
+            },
+
+            // 描述: 创建一个 mesh: 平面, 它由给定的空间坐标所确定
+            // 参数:
+            //     @ positions, Array, 由空间坐标组成的数组, 如[0, 0, 0, 1, 1, 1, 2, 2, 2]代表(0, 0, 0), (1, 1, 1), (2, 2, 2)
+            // 注意: 必须以顺时针或逆时针方向来排列空间坐标
+            createPlane: function (positions) {
+
+                // Step 1: 转为float32array
+                const positions_float32array = new Float32Array(positions);
+                const positions_attribute = new THREE.BufferAttribute(positions_float32array, 3);
+
+                // Step 2: 三角剖分
+                const indexes = Earcut.triangulate(positions, null, 3);
+                const indexes_uint16array = new Uint16Array(indexes);
+                const indexes_attribute = new THREE.BufferAttribute(indexes_uint16array, 1);
+
+                // Step 3: 创建mesh
+                const geometry = new THREE.BufferGeometry();
+                geometry.attributes.position = positions_attribute;
+                geometry.index = indexes_attribute;
+                geometry.computeVertexNormals(); // 计算顶点的法向量(有助于增亮网格表面)
+                const mesh = new THREE.Mesh(geometry, TOOL.resources.material_mesh_ff000003);
+
+                // Step 4:
+                return mesh;
+
+            },
+
+            // 描述: 根据指定的空间坐标更新指定的geometry
+            //     @ geometry, THREE.BufferGeometry, 待更新的 geometry
+            //     @ position, Array               , 由空间坐标组成的一维数组, 如[0, 0, 0, 1, 1, 1, 2, 2, 2]代表(0, 0, 0), (1, 1, 1), (2, 2, 2)
+            // 注意: 必须以顺时针或逆时针方向来排列空间坐标
+            // 返回: undefined
+            updatePlane: function (geometry, positions) {
+
+                // Step 1: position
+                const positions_float32array = new Float32Array(positions);
+                const positions_attribute = new THREE.BufferAttribute(positions_float32array, 3);
+
+                // Step 2: index
+                const indexes = Earcut.triangulate(positions, null, 3);
+                const indexes_uint16array = new Uint16Array(indexes);
+                const indexes_attribute = new THREE.BufferAttribute(indexes_uint16array, 1);
+
+                // Step 3: 更新
+                geometry.attributes.position = positions_attribute;
+                geometry.index = indexes_attribute;
+                geometry.index.needsUpdate = true;
+
+            },
+
+            // 描述: 由3个点计算平面方程的系数(平面方程: Ax + By + Cz + D = 0)
+            // 参数:
+            //     @ positions: Array, 由空间坐标组成的一维数组, 如[0, 0, 0, 1, 1, 1, 2, 2, 2]代表(0, 0, 0), (1, 1, 1), (2, 2, 2)
+            // 返回:
+            //     @ Array, 由系数组成的一维数组, 系数顺序为[A, B, C, D]
+            calculatedPlane: function (positions) {
+
+                const [x_1, y_1, z_1, x_2, y_2, z_2, x_3, y_3, z_3] = positions;
+
+                const a = (y_2 - y_1) * (z_3 - z_1) - (y_3 - y_1) * (z_2 - z_1);
+                const b = (z_2 - z_1) * (x_3 - x_1) - (z_3 - z_1) * (x_2 - x_1);
+                const c = (x_2 - x_1) * (y_3 - y_1) - (x_3 - x_1) * (y_2 - y_1);
+                const d = -a * x_1 - b * y_1 - c * z_1;
+
+                return [a, b, c, d];
+
+            },
+
+            // 描述: 计算直线与平面的交点
+            // 参数:
+            //     @ position_1 : Array, 空间坐标, 如[0, 0, 0]
+            //     @ position_2 : Array, 空间坐标, 如[0, 0, 0]
+            //     @ coefficient: Array, 平面方程系数, 如[A, B, C, D]
+            // 返回: Array, 直线与平面的交点坐标, 如[0, 0, 0]
+            calculatedCrosspoint: function (position_1, position_2, coefficient) {
+
+                const [a, b, c, d] = coefficient;
+                const [x_1, y_1, z_1] = position_1;
+                const [x_2, y_2, z_2] = position_2;
+
+                // 求: 方向向量
+                const x_d = x_2 - x_1;
+                const y_d = y_2 - y_1;
+                const z_d = z_2 - z_1;
+
+                // 求: 模
+                const norm = Math.hypot(x_d, y_d, z_d);
+
+                // 求: 单位向量
+                const x_u = x_d / norm;
+                const y_u = y_d / norm;
+                const z_u = z_d / norm;
+
+                const temp = - (a * x_1 + b * y_1 + c * z_1 + d) / (a * x_u + b * y_u + c * z_u);
+
+                // 求: 交点
+                const x_c = x_1 + temp * x_u;
+                const y_c = y_1 + temp * y_u;
+                const z_c = z_1 + temp * z_u;
+
+                return [x_c, y_c, z_c];
+
+            },
+
+            // 描述: 快速显示一个描述信息
+            // 参数:
+            //     @ txt: String, 文本
+            showTip: function (txt, elem_parent) {
+
+                let elem_tip = document.createElement("p");
+
+                elem_tip.textContent = txt;
+                elem_tip.style.position = "absolute";
+                elem_tip.style.top = "50%";
+                elem_tip.style.left = "50%";
+                elem_tip.style.padding = "0.35em 0.85em";
+                elem_tip.style.borderRadius = "0.6em";
+                elem_tip.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+                elem_tip.style.color = "#ddd";
+                elem_tip.style.opacity = "0";
+                elem_tip.style.transform = "translate(-50%, -50%)";
+                elem_tip.style.transition = "opacity 0.32s ease";
+
+                elem_parent.appendChild(elem_tip);
+
+                window.setTimeout(() => {
+
+                    elem_tip.style.opacity = "1";
+
+                    window.setTimeout(() => {
+
+                        elem_tip.style.opacity = "0";
+
+                        window.setTimeout(() => {
+
+                            elem_parent.removeChild(elem_tip);
+
+                            elem_tip = null;
+
+                        }, 350);
+
+                    }, 1320);
+
+                }, 0);
+
+            },
+
+        };
+
+        // 主函数
+        TOOL.initResources().then(state => {
+
+            // Step 1: 预加载资源
+            if (!state) {
+
+                console.warn("资源加载失败");
+
+                return;
+
+            }
+
+            initAr();
+
+        });
+
+        // Step 2: immersive-ar
+        function initAr() {
+
+            let hittest_source;
+            let hittest_requested;
+            let hittest_reticule;
+
+            hittest_source = null;
+
+            hittest_requested = false;
+
+            hittest_reticule = TOOL.createReticule();
+            hittest_reticule.visible = false;
+            hittest_reticule.matrixAutoUpdate = false;
+
+            // Part 2: three
+            let cache;
+            let scene;
+            let camera;
+            let renderer;
+
+            cache = [];
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 1000);
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+            renderer.xr.enabled = true;
+            renderer.setAnimationLoop(render_normal);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            scene = new THREE.Scene();
+            scene.add(hittest_reticule);
+
+            // Part 3: 元素与事件
+            //     Part 3-1: 获取元素
+            const elem_state = document.querySelector("#layer-state");                                        // 第一层: 状态层
+            const elem_function = document.querySelector("#layer-function");                                  // 第一层: 功能层
+
+            const elem_function_type = document.querySelector("#layer-function > #function-type");            // 第二层: 功能层 -> 类型层
+            const elem_function_panel = document.querySelector("#layer-function > #function-panel");          // 第二层: 功能层 -> 数据层
+            const elem_function_operation = document.querySelector("#layer-function > #function-operation");  // 第二层: 功能层 -> 操作层
+
+            const elem_function_type_length = elem_function_type.querySelector("#type-length");               // 第三层: 功能层 -> 类型层 -> 测长功能
+            const elem_function_type_height = elem_function_type.querySelector("#type-height");               // 第三层: 功能层 -> 类型层 -> 测高功能
+            const elem_function_type_area = elem_function_type.querySelector("#type-area");                   // 第三层: 功能层 -> 类型层 -> 测面功能
+
+            const elem_function_operation_exit = elem_function_operation.querySelector("#exit");              // 第三层: 功能层 -> 操作层 -> 退回: 从操作层回退到类型曾
+            const elem_function_operation_cancel = elem_function_operation.querySelector("#cancel");          // 第三层: 功能层 -> 操作层 -> 撤销: 略
+            const elem_function_operation_reset = elem_function_operation.querySelector("#reset");            // 第三层: 功能层 -> 操作层 -> 清空: 略
+            const elem_function_operation_done = elem_function_operation.querySelector("#done");              // 第三层: 功能层 -> 操作层 -> 结束: 结束当前的连贯操作, 马上开始下一次连贯操作
+            const elem_function_operation_select = elem_function_operation.querySelector("#select");          // 第三层: 功能层 -> 操作层 -> 采点: 略
+
+            const elem_function_panel_1 = elem_function_panel.querySelector("ul > li:nth-child(1)");          // 第三层: 功能层 -> 数据层 -> 整数
+            const elem_function_panel_2 = elem_function_panel.querySelector("ul > li:nth-child(3)");          // 第三层: 功能层 -> 数据层 -> 十分位
+            const elem_function_panel_3 = elem_function_panel.querySelector("ul > li:nth-child(4)");          // 第三层: 功能层 -> 数据层 -> 百分位
+            const elem_function_panel_4 = elem_function_panel.querySelector("ul > li:nth-child(5)");          // 第三层: 功能层 -> 数据层 -> 单位
+
+            //     Part 3-2: 绑定事件
+            let animationFrameId;                                                 // 帧循环函数的请求ID
+
+            elem_function_type.onclick = toLayerOperation;                        // 类型层事件: 由类型层进入到操作层
+
+            elem_function_type_length.onclick = installMeasurementFunctionLength; // 类型层事件: 挂载长度测量功能, 覆盖其它测量功能
+            elem_function_type_height.onclick = installMeasurementFunctionHeight; // 类型层事件: 挂载高度测量功能, 覆盖其它测量功能
+            elem_function_type_area.onclick = installMeasurementFunctionArea;     // 类型层事件: 挂载面积测量功能, 覆盖其它测量功能
+
+            elem_function_operation_exit.onclick = toLayerType;                   // 操作层事件: 由操作层进入到类型层
+            elem_function_operation_cancel.onclick = developingFunction;          // 操作层事件: 该功能正在开发...
+            elem_function_operation_reset.onclick = developingFunction;           // 操作层事件: 该功能正在开发...
+
+            elem_function_operation_select.addEventListener("click", vibrate);    // 操作层事件: 采点时触发震动
+
+            //     Part 3-3: 定义事件(详细的事件描述见于函数体内) window.navigator.vibrate(20);
+            function vibrate() {
+
+                window.navigator.vibrate(20);
+
+            }
+            function toLayerType() {
+                // 描述: 由操作层进入到类型层
+                // -------------------------------------- Step 1 --------------------------------------: 终止 hittest
+                renderer.setAnimationLoop(render_normal);
+
+                hittest_reticule.visible = false;
+
+                // -------------------------------------- Step 2 --------------------------------------: 移除 mesh
+                cache.map(mesh => {
+
+                    scene.remove(mesh);
+
+                });
+
+                // -------------------------------------- Step 3 --------------------------------------: 隐藏操作层和数据层
+                elem_function_panel.style.opacity = "0";
+                elem_function_panel.style.visibility = "hidden";
+
+                elem_function_operation.style.opacity = "0";
+                elem_function_operation.style.visibility = "hidden";
+                elem_function_operation.style.marginBottom = "-1em";
+                // -------------------------------------- Step 4 --------------------------------------: 显示类型层
+                elem_function_type.style.opacity = "1";
+                elem_function_type.style.visibility = "visible";
+                elem_function_type.style.marginBottom = "0";
+
+            }
+            function toLayerOperation() {
+                // 描述: 由类型层进入到操作层
+                // -------------------------------------- Step 1 --------------------------------------: 启动 hittest
+                renderer.setAnimationLoop(render_hittest);
+
+                // -------------------------------------- Step 2 --------------------------------------: 隐藏类型层
+                elem_function_type.style.opacity = "0";
+                elem_function_type.style.visibility = "hidden";
+                elem_function_type.style.marginBottom = "-1em";
+
+                // -------------------------------------- Step 2 --------------------------------------: 显示操作层和数据层
+                elem_function_panel.style.opacity = "1";
+                elem_function_panel.style.visibility = "visible";
+
+                elem_function_operation.style.opacity = "1";
+                elem_function_operation.style.visibility = "visible";
+                elem_function_operation.style.marginBottom = "0";
+
+            }
+            function developingFunction() {
+
+                TOOL.showTip("该功能正在开发", elem_function);
+
+            }
+            function changePanel(number, unit) {
+                // 描述: 修改 elem_function_panel
+                // 参数:
+                //     @ number: Float , 至多有 2 位小数的浮点数
+                //     @ unit  : String, 单位, 可选, 默认为 m
+                // -------------------------------------- 函数体 --------------------------------------
+                let string_1; // 整数位
+                let string_2; // 十分位
+                let string_3; // 百分位
+
+                if (number === 0) {
+
+                    string_1 = "0";
+                    string_2 = "0";
+                    string_3 = "0";
+
+                } else {
+
+                    string_1 = Math.floor(number).toFixed(0);
+                    string_2 = Math.floor(number * 10).toFixed(0).slice(-1);
+                    string_3 = Math.floor(number * 100).toFixed(0).slice(-1);
+
+                }
+
+                elem_function_panel_1.textContent = string_1;
+                elem_function_panel_2.textContent = string_2;
+                elem_function_panel_3.textContent = string_3;
+                elem_function_panel_4.textContent = unit;
+
+            }
+            function installMeasurementFunctionLength() {
+
+                changePanel(0, "m");
+
+                elem_function_operation_select.onclick = createFunctionSelect();
+                elem_function_operation_done.onclick = createFunctionDone();
+                elem_function_operation_reset.onclick = createFunctionReset();
+                elem_function_operation_exit.addEventListener("click", createFunctionExit());
+
+                function createFunctionSelect() {
+
+                    let isFirst = true; //
+
+                    const vector3s = [];
+                    const vector3_1 = new THREE.Vector3();
+                    const vector3_2 = new THREE.Vector3();
+
+                    const geometry_s = new THREE.BufferGeometry();
+                    const geometry_d = new THREE.BufferGeometry();
+
+                    const line_s = new THREE.Line(geometry_s, TOOL.resources.material_solidline_c629221);
+                    const line_d = new THREE.Line(geometry_d, TOOL.resources.material_dashedline_c629221);
+
+                    scene.add(line_s, line_d);
+                    cache.push(line_s, line_d);
+
+                    entry.off = () => {
+
+                        if (!animationFrameId) return;
+
+                        line_d.visible = false;
+
+                        changePanel(0, "m");
+
+                        window.cancelAnimationFrame(animationFrameId);
+
+                    };
+
+                    return entry;
+
+                    function track() {
+
+                        line_d.visible = hittest_reticule.visible;
+
+                        if (!line_d.visible) {
+
+                            animationFrameId = window.requestAnimationFrame(track);
+
+                            return;
+
+                        }
+
+                        vector3_2.setFromMatrixPosition(hittest_reticule.matrix);
+                        geometry_d.setFromPoints([vector3_1, vector3_2]);
+                        geometry_d.computeBoundingSphere();
+                        line_d.computeLineDistances();
+                        line_d.visible = true;
+
+                        const distance = Math.round(vector3_1.distanceTo(vector3_2) * 100) / 100;
+                        changePanel(distance, "m");
+
+                        animationFrameId = window.requestAnimationFrame(track);
+
+                    }
+
+                    function select() {
+
+                        vector3_1.setFromMatrixPosition(hittest_reticule.matrix);
+                        vector3s.push(new THREE.Vector3().copy(vector3_1));
+
+                        const point = TOOL.createPoint(); // 返回一个 circle mesh
+                        point.position.copy(vector3_1);
+                        point.setRotationFromMatrix(hittest_reticule.matrix);
+
+                        scene.add(point);
+                        cache.push(point);
+
+                        // 首次 select
+                        if (isFirst) {
+
+                            isFirst = false;
+
+                            animationFrameId = window.requestAnimationFrame(track);
+
+                        } else {
+
+                            geometry_s.setFromPoints(vector3s);
+                            geometry_s.computeBoundingSphere();
+
+                            const length = vector3s.length;
+                            const vector3_last = vector3s[length - 1];
+                            const vector3_next = vector3s[length - 2];
+                            const vector3_center = new THREE.Vector3().addVectors(vector3_last, vector3_next).divideScalar(2);
+                            const distance = vector3_next.distanceTo(vector3_last);
+                            const txt = TOOL.createText(Math.round(distance * 100) / 100 + "m");
+                            txt.position.copy(vector3_center);
+                            txt.lookAt(camera.position);
+
+                            scene.add(txt);
+                            cache.push(txt);
+
+                            changePanel(0, "m");
+
+                        }
+
+                    }
+
+                    function entry() {
+
+                        if (!hittest_reticule.visible) return;
+
+                        select();
+
+                    }
+
+                }
+
+                function createFunctionDone() {
+
+                    return (function () {
+
+                        elem_function_operation_select.onclick.off();
+                        elem_function_operation_select.onclick = createFunctionSelect();
+
+                    });
+
+                }
+
+                function createFunctionReset() {
+
+                    return (function () {
+
+                        cache.map(mesh => {
+
+                            scene.remove(mesh);
+
+                        });
+
+                        elem_function_operation_done.onclick();
+
+                    });
+
+                }
+
+                function createFunctionExit() {
+
+                    return (function exit() {
+
+                        elem_function_operation_reset.onclick();
+
+                        this.removeEventListener("click", exit);
+
+                    });
+
+                }
+
+            }
+            function installMeasurementFunctionHeight() {
+
+                changePanel(0, "m");
+
+                elem_function_operation_select.onclick = createFunctionSelect();
+                elem_function_operation_done.onclick = createFunctionDone();
+                elem_function_operation_reset.onclick = createFunctionReset();
+                elem_function_operation_exit.addEventListener("click", createFuntionExit());
+
+                function createFunctionSelect() {
+
+                    let datum;
+                    let height;
+                    let isFirst = true;
+
+                    const vector3_1 = new THREE.Vector3();
+                    const vector3_2 = new THREE.Vector3();
+
+                    const point_d = TOOL.createReticule();
+                    const geometry_d = new THREE.BufferGeometry();
+                    const line_d = new THREE.Line(geometry_d, TOOL.resources.material_dashedline_c629221);
+
+                    line_d.visible = false;
+                    point_d.visible = false;
+
+                    scene.add(point_d, line_d);
+                    cache.push(point_d, line_d);
+
+                    entry.off = () => {
+
+                        if (isFirst) return;
+
+                        select();
+
+                    };
+
+                    return entry;
+
+                    function track() {
+
+                        const scale = camera.position.distanceTo(vector3_1);
+
+                        height = (camera.getWorldDirection().y - datum) * scale;
+                        height = height < 0 ? 0 : height;
+
+                        vector3_2.setY(vector3_1.y + height);
+                        point_d.position.copy(vector3_2);
+                        geometry_d.setFromPoints([vector3_1, vector3_2]);
+                        geometry_d.computeBoundingSphere();
+                        line_d.computeLineDistances();
+                        changePanel(Math.round(height * 100) / 100, "m");
+
+                        animationFrameId = window.requestAnimationFrame(track);
+
+                    }
+
+                    function select() {
+
+                        if (isFirst) {
+
+                            renderer.setAnimationLoop(render_normal);
+
+                            datum = camera.getWorldDirection().y;
+
+                            vector3_1.setFromMatrixPosition(hittest_reticule.matrix);
+                            vector3_2.copy(vector3_1);
+                            point_d.position.copy(vector3_1);
+
+                            const point = TOOL.createPoint();
+                            point.position.copy(vector3_1);
+                            point.setRotationFromMatrix(hittest_reticule.matrix);
+
+                            line_d.visible = true;
+                            point_d.visible = true;
+                            hittest_reticule.visible = false;
+
+                            scene.add(point);
+                            cache.push(point);
+
+                            isFirst = false;
+
+                            animationFrameId = window.requestAnimationFrame(track);
+
+                        } else {
+
+                            if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+
+                            const point = TOOL.createPoint();
+                            point.position.copy(vector3_2);
+                            point.setRotationFromMatrix(hittest_reticule.matrix);
+
+                            const geometry = new THREE.BufferGeometry().setFromPoints([vector3_1, vector3_2]);
+                            const line = new THREE.Line(geometry, TOOL.resources.material_solidline_c629221);
+
+                            const vector3_center = new THREE.Vector3().addVectors(vector3_1, vector3_2).divideScalar(2);
+                            const txt = TOOL.createText(Math.round(height * 100) / 100 + "m");
+                            txt.position.copy(vector3_center);
+                            txt.lookAt(camera.position);
+
+                            scene.add(point, line, txt);
+                            cache.push(point, line, txt);
+
+                            line_d.visible = false;
+                            point_d.visible = false;
+
+                            changePanel(0, "m");
+                            renderer.setAnimationLoop(render_hittest);
+
+                            isFirst = true;
+
+                        }
+
+                    }
+
+                    function entry() {
+
+                        select();
+
+                    }
+
+                }
+
+                function createFunctionDone() {
+
+                    return (function () {
+
+                        const fn = elem_function_operation_select.onclick;
+
+                        if (!fn) return;
+
+                        fn.off();
+
+                    });
+
+                }
+
+                function createFunctionReset() {
+
+                    return (function () {
+
+                        const fn = elem_function_operation_done.onclick;
+
+                        fn();
+
+                        cache.map(mesh => {
+
+                            scene.remove(mesh);
+
+                        });
+
+                        elem_function_operation_select.onclick = createFunctionSelect();
+
+                    });
+
+                }
+
+                function createFuntionExit() {
+
+                    return (function exit() {
+
+                        elem_function_operation_reset.onclick();
+
+                        this.removeEventListener("click", exit);
+
+                    });
+
+                }
+
+            }
+            function installMeasurementFunctionArea() {
+
+                changePanel(0, "m²");
+
+                elem_function_operation_select.onclick = createFunctionSelect();
+                elem_function_operation_done.onclick = createFunctionDone();
+                elem_function_operation_reset.onclick = createFunctionReset();
+                elem_function_operation_exit.addEventListener("click", createFuntionExit());
+
+                function createFunctionSelect() {
+
+                    let coefficient;    // 平面方程的系数
+                    let isFirst = true; //
+
+                    const positions = [];                          // array  : 一维数组, 存储平面的节点
+                    const vector3 = new THREE.Vector3();           // vector3: 公共使用的中间变量
+
+                    const geometry = new THREE.BufferGeometry();   // geometry: 平面
+                    const geometry_s = new THREE.BufferGeometry(); // geometry: 实线
+                    const geometry_d = new THREE.BufferGeometry(); // geometry: 虚线
+
+                    const plane = new THREE.Mesh(geometry, TOOL.resources.material_mesh_ff000003);
+                    const line_s = new THREE.Line(geometry_s, TOOL.resources.material_solidline_c629221);
+                    const line_d = new THREE.Line(geometry_d, TOOL.resources.material_dashedline_c629221);
+
+                    scene.add(line_s, line_d, plane);
+                    cache.push(line_s, line_d, plane);
+
+                    entry.done = () => {
+
+                        if (positions.length < 9) return false;
+
+                        window.cancelAnimationFrame(animationFrameId);
+
+                        // Step 1: 更新线面
+                        positions.push(...positions.slice(0, 3));
+                        updateLine(positions, geometry_s);
+                        updatePlane(positions);
+
+                        line_d.visible = false;
+
+                        // Step 2: 计算面积
+                        const area = calculateArea(positions, geometry.index.array);
+                        const center = caculateCenter(plane);
+                        const txt = TOOL.createText(Math.round(area * 100) / 100 + "m²");
+
+                        txt.position.set(...center);
+                        txt.translateY(0.02);
+                        txt.lookAt(camera.position);
+
+                        scene.add(txt);
+                        cache.push(txt);
+
+                        // Step 3: 重置数值面板
+                        changePanel(0, "m²");
+
+                        return true;
+
+                    };
+
+                    entry.off = () => {
+
+                        changePanel(0, "m²");
+
+                        window.cancelAnimationFrame(animationFrameId);
+
+                    }
+
+                    return entry;
+
+                    function track() {
+
+                        let array_1;
+                        let array_2;
+
+                        // Step 1: 采集点坐标
+                        const { x, y, z } = vector3.setFromMatrixPosition(hittest_reticule.matrix);
+                        array_1 = [...positions, x, y, z];
+
+                        // Step 2: 校正与追踪面
+                        if (coefficient) calibratePosition(array_1);
+                        if (array_1.length > 6) {
+
+                            updatePlane(array_1);
+
+                            // 更新面积
+                            const area = calculateArea(array_1, geometry.index.array);
+                            changePanel(Math.round(area * 100) / 100, "m²");
+
+                        }
+
+                        // Step 3: 追踪线
+                        array_2 = array_1.length > 6 ? [...array_1.slice(array_1.length - 6), ...array_1.slice(0, 3)] : array_1;
+                        updateLine(array_2, geometry_d);
+                        line_d.computeLineDistances();
+
+                        animationFrameId = window.requestAnimationFrame(track);
+
+                    }
+
+                    function select() {
+
+                        // Step 1: 采集点坐标
+                        const { x, y, z } = vector3.setFromMatrixPosition(hittest_reticule.matrix);
+                        positions.push(x, y, z);
+
+                        // Step 2: 校正
+                        if (positions.length === 9) calculatedCoefficient(positions);
+                        if (positions.length > 9) calibratePosition(positions);
+
+                        // Step 3: 向场景挂载点/线/面
+                        const point = createPoint(positions);
+                        point.setRotationFromMatrix(hittest_reticule.matrix);
+
+                        scene.add(point);
+                        cache.push(point);
+
+                        if (positions.length > 3) updateLine(positions, geometry_s);
+                        if (positions.length > 6) updatePlane(positions);
+
+                        if (isFirst) {
+
+                            animationFrameId = window.requestAnimationFrame(track);
+
+                            isFirst = false;
+
+                        }
+
+                    }
+
+                    function entry() {
+
+                        if (!hittest_reticule.visible) return;
+
+                        select();
+
+                    }
+
+
+                    // 描述: 校正 positions, 每次校正最后3个元素(即最后一组空间坐标)
+                    function calibratePosition(positions) {
+
+                        const position_target = positions.slice(positions.length - 3);
+                        const position_camera = [camera.position.x, camera.position.y, camera.position.z];
+                        const position_calibration = TOOL.calculatedCrosspoint(position_camera, position_target, coefficient);
+
+                        positions.splice(positions.length - 3, 3, ...position_calibration);
+
+                    }
+                    // 描述: 计算平面方程的系数(使用 positions 的前9个元素)
+                    function calculatedCoefficient(positions) {
+
+                        coefficient = TOOL.calculatedPlane(positions.slice(0, 9));
+
+                    }
+                    // 描述: 创建点
+                    function createPoint(positions) {
+
+                        const mesh = TOOL.createPoint();
+
+                        mesh.position.set(...positions.slice(positions.length - 3));
+
+                        return mesh;
+
+                    }
+                    // 描述: 更新线
+                    function updateLine(positions, geometry) {
+
+                        const positions_float32array = new Float32Array(positions);
+                        const positions_attribute = new THREE.BufferAttribute(positions_float32array, 3);
+
+                        geometry.attributes.position = positions_attribute;
+                        geometry.computeBoundingSphere();
+
+                    }
+                    // 描述: 更新平面
+                    function updatePlane(positions) {
+
+                        // Step 1: position
+                        const positions_float32array = new Float32Array(positions);
+                        const positions_attribute = new THREE.BufferAttribute(positions_float32array, 3);
+
+                        // Step 2: index
+                        const indexes = Earcut.triangulate(positions, null, 3);
+                        const indexes_uint16array = new Uint16Array(indexes);
+                        const indexes_attribute = new THREE.BufferAttribute(indexes_uint16array, 1);
+
+                        // Step 3: 更新
+                        geometry.attributes.position = positions_attribute;
+                        geometry.index = indexes_attribute;
+                        geometry.index.needsUpdate = true;
+                        geometry.computeBoundingSphere();
+
+                    }
+                    // 描述: 计算面积
+                    function calculateArea(positions, indexes) {
+
+                        let area_sum = 0;
+
+                        for (let i = 0; i < indexes.length; i += 3) {
+
+                            const index_1 = indexes[i];
+                            const index_2 = indexes[i + 1];
+                            const index_3 = indexes[i + 2];
+
+                            const vector3_1 = new THREE.Vector3(...positions.slice(index_1 * 3, index_1 * 3 + 3));
+                            const vector3_2 = new THREE.Vector3(...positions.slice(index_2 * 3, index_2 * 3 + 3));
+                            const vector3_3 = new THREE.Vector3(...positions.slice(index_3 * 3, index_3 * 3 + 3));
+
+                            const triangle = new THREE.Triangle(vector3_1, vector3_2, vector3_3);
+                            const area = triangle.getArea();
+
+                            area_sum += area;
+
+                        }
+
+                        return area_sum;
+
+                    }
+                    // 描述: 计算平面的中心点
+                    function caculateCenter(object3d) {
+
+                        const box = new THREE.Box3().expandByObject(object3d);
+                        const center = box.getCenter();
+
+                        return [center.x, center.y, center.z];
+
+                    }
+                }
+
+                function createFunctionDone() {
+
+                    return (function () {
+
+                        elem_function_operation_select.onclick.done() ? elem_function_operation_select.onclick = createFunctionSelect() : null;
+
+                    });
+
+                }
+
+                function createFunctionReset() {
+
+                    return (function () {
+
+                        elem_function_operation_select.onclick.off();
+
+                        cache.map(mesh => {
+
+                            scene.remove(mesh);
+
+                        });
+
+                        elem_function_operation_select.onclick = createFunctionSelect();
+
+                    });
+
+                }
+
+                function createFuntionExit() {
+
+                    return (function exit() {
+
+                        elem_function_operation_select.onclick.off();
+
+                        this.removeEventListener("click", exit);
+
+                    });
+
+                }
+
+            }
+
+            // Part 4: 开启 immersive-ar
+            const config_session = {
+
+                requiredFeatures: ["hit-test"],      // 必须性支持特性
+
+                optionalFeatures: ["dom-overlay"],   // 选择性支持特性
+
+                domOverlay: { root: elem_function }, // 该元素必须在开启immersive-ar之前挂载进dom中
+
+            };
+
+            const arStartEvent = function () {
+
+                elem_state.textContent = "running";
+                elem_state.style.visibility = "hidden";
+
+                elem_function.style.visibility = "visible";
+
+                toLayerType();
+
+            };
+            const arStopEvent = function (session) {
+
+                // -------------------------------------- Step 0 --------------------------------------: 注销track函数
+                if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
+
+                // -------------------------------------- Step 1 --------------------------------------: 隐藏功能层
+                elem_function.style.visibility = "hidden";
+
+                elem_function_type.style.opacity = "0";
+                elem_function_type.style.visibility = "hidden";
+                elem_function_type.style.marginBottom = "-1em";
+
+                elem_function_operation.style.opacity = "0";
+                elem_function_operation.style.visibility = "hidden";
+                elem_function_operation.style.marginBottom = "-1em";
+
+                changePanel(0, "m");
+                elem_function_panel.style.opacity = "0";
+                elem_function_panel.style.visibility = "hidden";
+
+                // -------------------------------------- Step 2 --------------------------------------: 显示状态层
+                elem_state.textContent = "click to run";
+                elem_state.style.visibility = "visible";
+
+                // -------------------------------------- Step 3 --------------------------------------: 清楚缓存
+                cache.map(mesh => {
+
+                    scene.remove(mesh);
+
+                });
+
+                // -------------------------------------- Step 4 --------------------------------------: 重新注册ar启动事件
+                document.body.addEventListener("click", function onClick() {
+
+                    this.removeEventListener("click", onClick);
+
+                    session.on();
+
+                });
+
+            };
+
+            Session(renderer, config_session, arStartEvent, arStopEvent).then(session => {
+
+                elem_state.textContent = "click to run";
+
+                document.body.addEventListener("click", function onClick() {
+
+                    this.removeEventListener("click", onClick);
+
+                    session.on();
+
+                });
+
+            });
+
+            // 描述: 普通帧循环
+            function render_normal(timestamp, frame) {
+
+                renderer.render(scene, camera);
+
+            }
+
+            // 描述: 命中测试帧循环
+            function render_hittest(timestamp, frame) {
+
+                // 没有进入 AR Session
+                if (!frame) return;
+
+                const reference_space = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                if (hittest_requested === false) {
+
+                    session.requestReferenceSpace('viewer').then(function (reference_space) {
+
+                        session.requestHitTestSource({ space: reference_space }).then(function (source) {
+
+                            hittest_source = source;
+
+                        });
+
+                    });
+
+                    session.addEventListener('end', function () {
+
+                        hittest_requested = false;
+                        hittest_source = null;
+
+                    });
+
+                    hittest_requested = true;
+
+                }
+
+                if (hittest_source) {
+
+                    const hitTestResults = frame.getHitTestResults(hittest_source);
+
+                    if (hitTestResults.length) {
+
+                        const hit = hitTestResults[0];
+
+                        hittest_reticule.visible = true;
+                        hittest_reticule.matrix.fromArray(hit.getPose(reference_space).transform.matrix);
+
+                    } else {
+
+                        hittest_reticule.visible = false;
+
+                    }
+
+                }
+
+                renderer.render(scene, camera);
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>

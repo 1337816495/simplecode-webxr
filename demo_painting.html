@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>painting AR demo</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            background-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        init();
+
+        function init() {
+
+            // 普通 THREE
+            const scene = new THREE.Scene();
+            const cursor = new THREE.Vector3();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20);
+            const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+            const material = new THREE.MeshNormalMaterial();
+
+            // renderer
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+
+            renderer.xr.enabled = true;
+            renderer.setAnimationLoop(render);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // controller
+            const controller = renderer.xr.getController(0);
+
+            controller.addEventListener("selectstart", onSelectStart);
+            controller.addEventListener("selectend", onSelectEnd);
+            controller.userData.skipFrames = 0;
+
+            scene.add(controller);
+
+            // 开启 Session
+            Session(renderer).then(session => {
+
+                const p = document.createElement("p");
+
+                p.innerHTML = "点击开始";
+                p.style.position = "fixed";
+                p.style.top = "50%";
+                p.style.left = "50%";
+                p.style.color = "#fff";
+                p.style.fontSize = "2em";
+                p.style.transform = "translate(-50%, -50%)";
+
+                document.body.prepend(p);
+                document.body.addEventListener("click", function onClick() {
+
+                    this.removeEventListener("click", onClick);
+
+                    session.on();
+
+                });
+
+
+            });
+
+            function onSelectStart() {
+
+                this.userData.isSelecting = true;
+                // this.userData.skipFrames = 2;
+
+            }
+
+            function onSelectEnd() {
+
+                this.userData.isSelecting = false;
+
+            }
+
+            function handleController() {
+
+                const userData = controller.userData;
+
+                if (!userData.isSelecting) return;
+
+                const box = new THREE.Mesh(geometry, material);
+
+                box.position.setFromMatrixPosition(controller.matrix);
+
+                scene.add(box);
+
+                // cursor.set(0, 0, - 0.2).applyMatrix4(controller.matrixWorld);
+
+                // if (userData.isSelecting === true) {
+
+                //     if (userData.skipFrames >= 0) {
+
+                //         userData.skipFrames--;
+
+                //         painter.moveTo(cursor);
+
+                //     } else {
+
+                //         painter.lineTo(cursor);
+                //         painter.update();
+
+                //     }
+
+                // }
+
+            }
+
+            function render() {
+
+                handleController(controller);
+
+                renderer.render(scene, camera);
+
+            }
+
+        }
+
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            background-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+
+        // 描述: 定义 「观察者参考空间」 和 「真实世界参考空间」 的接收容器
+        // ----------------------- 重构部分 ----------------------- Begin
+        let reference_space_viewer; // 观察者参考空间
+        let reference_space_world;  // 真实世界参考空间
+        // ----------------------- 重构部分 ----------------------- End
+
+        // Step 1：使用 THREE 的 WebGLRenderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20);
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,                // 开启透明度（必选）
+            antialias: true,            // 开启抗锯齿
+            preserveDrawingBuffer: true // 保留缓存直到手动清除或被覆盖
+        });
+
+        renderer.xr.enabled = true;
+        renderer.setAnimationLoop(render);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Step 2：开启 AR
+        Session(renderer).then(session => {
+            // AR 必须在用户主动与页面交互的前提下，才能启动！
+            // 所以为 body 添加了一个“点击开启AR”的事件！
+            // 该事件只能使用一次！
+            const p = document.createElement("p");
+
+            p.innerHTML = "点击开始";
+            p.style.position = "fixed";
+            p.style.top = "50%";
+            p.style.left = "50%";
+            p.style.color = "#fff";
+            p.style.fontSize = "2em";
+            p.style.transform = "translate(-50%, -50%)";
+
+            document.body.prepend(p);
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                session.on();
+
+            });
+
+        });
+
+        // Step 3：开启帧循环，用于实时更新 THREE 画面
+        function render(timestamp, frame) {
+
+            if (!frame) return;
+
+            // 描述:
+            // ----------------------- 重构部分 ----------------------- Begin
+            const pose_view = reference_space_world ? frame.getViewerPose(reference_space_world) : null; // 获取视角姿态对象
+
+            if (pose_view) {
+
+                const device_camera_parameter = pose_view.views[0]; // 设备的相机参数(对于AR而言, views只有1个元素; 对于VR而言, 则有2个元素, 依次代表左眼相机和右眼相机)
+
+                // pose_view.views[0].transform.position;           // 这两者的值非常接近, 但不完全一样, 似乎...前者才是设备的真实位置, 后者因为计算的延迟而导致与前者数据不完全一致但很接近
+                // camera.position;                                 // 这两者的值非常接近, 但不完全一样, 似乎...前者才是设备的真实位置, 后者因为计算的延迟而导致与前者数据不完全一致但很接近
+
+            }
+
+            // ----------------------- 重构部分 ----------------------- End
+
+            renderer.render(scene, camera);
+
+        }
+
+        // Step 4: 重构Session模块
+        async function Session(renderer, config = {}, callback_start, callback_end) {
+
+            const session = {};
+            const isSupport = await checkSupport();
+
+            let currentSession = null;
+
+            if (isSupport) {
+
+                session.ok = true;
+                session.on = () => {
+
+                    if (currentSession) return;
+
+                    navigator.xr.requestSession('immersive-ar', config)
+                        .then(onSessionStarted)
+                        // 描述: 向外界抛出 「观察者参考空间」 和 「真实世界参考空间」
+                        // ----------------------- 重构部分 ----------------------- Begin
+                        .then(reference_space => {
+
+                            reference_space_viewer = reference_space.referenceSpaceViewer;
+                            reference_space_world = reference_space.referenceSpaceWorld;
+
+                        });
+                    // ----------------------- 重构部分 ----------------------- End
+
+                };
+                session.off = () => { if (currentSession) currentSession.end(); };
+
+            } else {
+
+                session.ok = false;
+                session.on = null;
+                session.off = null;
+
+            }
+
+            return session;
+
+            // 必须支持 xr 和 ar 和 https
+            async function checkSupport() {
+
+                if (!navigator.xr) return false;
+
+                if (!(await navigator.xr.isSessionSupported("immersive-ar"))) return false;
+
+                if (!window.isSecureContext) return false;
+
+                return true;
+
+            }
+
+            async function onSessionStarted(session) {
+
+                session.addEventListener("end", onSessionEnded);
+
+                renderer.xr.setReferenceSpaceType("local");
+
+                await renderer.xr.setSession(session);
+
+                currentSession = session;
+
+                if (callback_start) callback_start();
+
+                // 描述: 生产 「观察者参考空间」 和 「真实世界参考空间」
+                // ----------------------- 重构部分 ----------------------- Begin
+                const reference_space_viewer = await session.requestReferenceSpace("viewer"); // 观察者参考空间
+                const reference_space_world = await session.requestReferenceSpace("local");   // 真实世界参考空间
+
+                return ({
+                    referenceSpaceViewer: reference_space_viewer,
+                    referenceSpaceWorld: reference_space_world,
+                });
+                // ----------------------- 重构部分 ----------------------- End
+
+            }
+
+            function onSessionEnded() {
+
+                currentSession.removeEventListener("end", onSessionEnded);
+
+                currentSession = null;
+
+                if (callback_end) callback_end(session);
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>

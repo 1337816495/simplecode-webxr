@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            background-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        // Step 1：使用 THREE 的 WebGLRenderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20);
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,                // 开启透明度（必选）
+            antialias: true,            // 开启抗锯齿
+            preserveDrawingBuffer: true // 保留缓存直到手动清除或被覆盖
+        });
+
+        renderer.xr.enabled = true;
+        renderer.setAnimationLoop(render);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        window.addEventListener("resize", resize);
+
+        // Step 2：开启 AR
+        Session(renderer).then(session => {
+            // AR 必须在用户主动与页面交互的前提下，才能启动！
+            // 所以为 body 添加了一个“点击开启AR”的事件！
+            // 该事件只能使用一次！
+            const p = document.createElement("p");
+
+            p.innerHTML = "点击开始";
+            p.style.position = "fixed";
+            p.style.top = "50%";
+            p.style.left = "50%";
+            p.style.color = "#fff";
+            p.style.fontSize = "2em";
+            p.style.transform = "translate(-50%, -50%)";
+
+            document.body.prepend(p);
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                session.on();
+
+            });
+
+        });
+
+        // Step 3：开启帧循环，用于实时更新 THREE 画面
+        function render(timestamp, frame) {
+
+            if (!frame) return;
+
+            renderer.render(scene, camera);
+
+        }
+
+        // Step 4: resize
+        function resize() {
+            // 当使用dom-overlay时, 进入/退出AR模式会触发多次resize event
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+
+
+
+        // mian
+
+        main();
+
+        function main() {
+
+            const elem_canvas = createWordCanvas("恒定大小的标签", 200);
+            const texture = new THREE.CanvasTexture(elem_canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, sizeAttenuation: false });
+            const sprite = new THREE.Sprite(material);
+
+            sprite.scale.set(0.3, elem_canvas.height / elem_canvas.width * 0.3, 1);
+            sprite.position.set(0, 0, -1);
+
+            scene.add(sprite);
+
+        }
+
+        // 描述：创建一个带有背景与文字的canvas，背景是圆角黑色的
+        // 参数：
+        //    @ txt ，String，文本
+        //    @ size，Int   ，一个汉字的尺寸（单位px），比如size:100代表一个汉字的宽高均为100px
+        // 返回：
+        //    @ <canvas>元素
+        function createWordCanvas(txt, size) {
+
+            // calculate constants
+            const font_size = size;
+            const font_number = txt.length;
+
+            const padding_side_h = font_size / 2; // 水平两侧的padding
+            const padding_side_v = font_size / 4; // 垂直两侧的padding
+
+            const box_width = padding_side_h + font_number * font_size + padding_side_h;
+            const box_height = padding_side_v + font_size + padding_side_v;
+            const box_radius = box_height * 0.25;
+            const box_offset = 0.5;
+
+            // create html element
+            const elem_canvas = document.createElement("canvas");
+
+            elem_canvas.width = box_width;
+            elem_canvas.height = box_height;
+            elem_canvas.style.display = "inline";
+
+            // draw background
+            const ctx = elem_canvas.getContext("2d");
+
+            ctx.beginPath();
+            ctx.moveTo(box_offset + box_radius, box_offset);
+            ctx.lineTo(box_offset + box_width - box_radius, box_offset);
+            ctx.bezierCurveTo(box_offset + box_width - box_radius, box_offset, box_offset + box_width, box_offset, box_offset + box_width, box_offset + box_radius);
+            ctx.lineTo(-box_offset + box_width, -box_offset + box_height - box_radius);
+            ctx.bezierCurveTo(-box_offset + box_width, -box_offset + box_height - box_radius, -box_offset + box_width, -box_offset + box_height, -box_offset + box_width - box_radius, -box_offset + box_height);
+            ctx.lineTo(-box_offset + box_radius, -box_offset + box_height);
+            ctx.bezierCurveTo(-box_offset + box_radius, -box_offset + box_height, box_offset, -box_offset + box_height, box_offset, -box_offset + box_height - box_radius);
+            ctx.lineTo(box_offset, box_offset + box_radius);
+            ctx.bezierCurveTo(box_offset, box_offset + box_radius, box_offset, box_offset, box_offset + box_radius, box_offset);
+
+            ctx.strokeStyle = "rgba(0, 0, 0, .5)";
+            ctx.stroke();
+
+            ctx.fillStyle = "rgba(0, 0, 0, .5)";
+            ctx.fill();
+
+            // draw txt
+            ctx.font = `${font_size}px sans-serif`;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "rgb(255, 255, 255)";
+            ctx.fillText(txt, padding_side_h, box_height / 2 + Math.round(font_size * .09));
+
+            return elem_canvas;
+
+        }
+
+    </script>
+
+</body>
+
+</html>

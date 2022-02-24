@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        .state {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            font-size: 2em;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="state">START</div>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        const global_elem_state = document.querySelector('.state');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, });
+
+        renderer.xr.enabled = true;
+        renderer.setSize(window.innerWidth, window.innerHeight,);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setAnimationLoop(render);
+
+        window.addEventListener('resize', onWindowResize);
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            // renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function render(timestamp, frame) {
+
+            if (renderer.xr.isPresenting) renderer.render(scene, camera);
+
+        }
+
+        const config = { requiredFeatures: ["dom-overlay"], domOverlay: { root: document.body } };
+
+        Session(renderer, config, onSessionStart, onSessionEnd).then(onSessionEnd);
+
+        function onSessionStart(xr_session) {
+
+            global_elem_state.style.display = 'none';
+
+        }
+
+        function onSessionEnd(xr_session) {
+
+            global_elem_state.style.display = 'block';
+
+            window.addEventListener('click', function once() {
+
+                xr_session.on();
+
+                this.removeEventListener('click', once);
+
+            });
+
+        }
+
+
+        // PART: Please coding here 👇
+        // ===================================================================================================== Start
+        main();
+
+        function main() {
+
+            // method 1
+            projectWorldSpaceToScreenSpaceByXrCamera();
+
+            // method 2(error)
+            // projectWorldSpaceToScreenSpaceByViewerPose();
+
+        }
+
+        function Model() {
+
+            const geometry = new THREE.SphereGeometry(0.25, 128, 128);
+            const material = new THREE.MeshNormalMaterial();
+            const mesh = new THREE.Mesh(geometry, material);
+
+            return mesh;
+
+        }
+
+        function Canvas() {
+
+            const canvas = document.createElement('canvas');
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+
+            window.addEventListener('resize', _ => {
+
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+            });
+
+            return canvas;
+
+        }
+
+        function getXrCamera() {
+
+            const promise = new Promise(resolve => {
+
+                (function f() {
+
+                    if (!renderer.xr.isPresenting) return requestAnimationFrame(f);
+
+                    resolve(renderer.xr.getCamera(camera));
+
+                })();
+
+            });
+
+            return promise;
+
+        }
+
+        function projectWorldSpaceToScreenSpaceByXrCamera() {
+
+            // model
+            const model = new Model();
+
+            model.position.set(0, 0, -1);
+
+            scene.add(model);
+
+            // canvas: it use to display the screen coordinate of the center point of the model.
+            const canvas = new Canvas();
+
+            document.body.prepend(canvas);
+
+            // XR Camera && projection
+            getXrCamera().then(camera_xr => {
+
+                const vector3 = new THREE.Vector3();
+
+                const render = (timestamp, frame) => {
+
+                    if (!renderer.xr.isPresenting) return;
+
+                    // calculate the screen coordinate of the center point of the model
+                    vector3.copy(model.position);
+                    vector3.project(renderer.xr.getCamera(camera_xr));
+
+                    const _x = vector3.x;
+                    const _y = vector3.y;
+
+                    const x = Math.round(_x * window.innerWidth / 2 + window.innerWidth / 2);
+                    const y = Math.round(window.innerHeight / 2 - _y * window.innerHeight / 2);
+
+                    // mark the center point of the model on the canvas by screen coordinate
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.fillStyle = 'rgb(255, 0, 0)';
+                    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                    ctx.fillRect(x - 2, y - 2, 4, 4);
+
+                    // render the ar scene on the another canvas
+                    renderer.render(scene, camera);
+
+                };
+
+                renderer.setAnimationLoop(render);
+
+            });
+
+        }
+
+        // BUG
+        //   This method is failed, i guess the error sources are the matrix_projection and the matrix_view(such as their value is incorrect).
+        //   But i didn't keep debugging anymore.
+        //   The idea of this method comes from this link(🔗https://blog.csdn.net/qq_38701868/article/details/109131238).
+        function projectWorldSpaceToScreenSpaceByViewerPose() {
+
+            // model
+            const model = new Model();
+
+            model.position.set(0, 0, -1);
+
+            scene.add(model);
+
+            // canvas: it use to display the screen coordinate of the center point of the model.
+            const canvas = new Canvas();
+
+            document.body.prepend(canvas);
+
+            // projection
+            const render = (timestamp, frame) => {
+
+                if (!renderer.xr.isPresenting) return;
+
+                renderer.render(scene, camera);
+
+                const space = renderer.xr.getReferenceSpace();
+
+                const pose = frame.getViewerPose(space);
+
+                if (!pose) return;
+
+                const view = pose.views[0];
+
+                const _matrix_projection = view.projectionMatrix;
+
+                const _matrix_view = view.transform.matrix; // it's the inverse of the world matrix
+
+                const matrix_projection = new THREE.Matrix4().set(..._matrix_projection);
+
+                const matrix_view = new THREE.Matrix4().set(..._matrix_view);
+
+                const vector3 = new THREE.Vector3();
+
+                vector3.copy(model.position);
+                vector3.applyMatrix4(matrix_view);
+                vector3.applyMatrix4(matrix_projection);
+
+                const _x = vector3.x;
+                const _y = vector3.y;
+
+                const x = Math.round(_x * window.innerWidth / 2 + window.innerWidth / 2);
+                const y = Math.round(window.innerHeight / 2 - _y * window.innerHeight / 2);
+
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = 'rgb(255, 0, 0)';
+                ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                ctx.fillRect(x - 2, y - 2, 4, 4);
+
+            };
+
+            renderer.setAnimationLoop(render);
+
+        }
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        .state {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            font-size: 2em;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="state">START</div>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+
+        // PART: Global Variable
+        // ===================================================================================================== Start
+        const global_elem_state = document.querySelector('.state');
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+        // PART: Three Variable
+        // ===================================================================================================== Start
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(
+            70,                                     // 视锥体的垂直视野角度（fov）, 该属性不影响camera_xr
+            window.innerWidth / window.innerHeight, // 视锥体的长宽比（aspect）  , 该属性不影响camera_xr
+            0.01,                                   // 视锥体的近端面（near）    , 该属性会影响camera_xr
+            100                                     // 视锥体的远端面（far）     , 该属性会影响camera_xr
+        );
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,                            // 透明通道
+            antialias: true,                        // 抗锯齿
+        });
+
+        renderer.xr.enabled = true;                 // 手动开启xr
+
+        renderer.setSize(
+            window.innerWidth,                      // <canvas>宽度（用于控制<canvas>, 但<canvas>却不影响XR）
+            window.innerHeight,                     // <canvas>高度（用于控制<canvas>, 但<canvas>却不影响XR）
+        );
+
+        renderer.setPixelRatio(
+            window.devicePixelRatio                 // 设备像素比（用于控制<canvas>, 但<canvas>却不影响XR）
+        );
+
+        renderer.setAnimationLoop(
+            render                                  // 帧循环函数
+        );
+
+        window.addEventListener('resize', onWindowResize);
+
+        function onWindowResize() {
+
+            // Tip:
+            //   xr模式是全屏模式, 进入/退出xr模式会触发resize事件, 若未启用dom-overlay功能, 进入/退出xr模式只会
+            //   触发1次resize事件, 若启用了dom-overlay功能, 进入/退出xr模式有可能触发多次resize事件, 具体的触发
+            //   次数似乎和overlay元素的复杂程度有关。某次实验观察中发现, 在启用了dom-overlay的情况下, 设备没有一步
+            //   到位的进入全屏模式, 而是多步逐渐进入全屏模式。
+
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function render(timestamp, frame) {
+
+            if (renderer.xr.isPresenting) renderer.render(scene, camera);
+
+        }
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+        // PART: XR Session
+        // ===================================================================================================== Start
+
+        const _example = {
+            requiredFeatures: ['hit-test'],      // 必用功能（没有该特性就报错）
+            optionalFeatures: ['dom-overlay'],   // 选用功能（没有该特性就忽略）
+            domOverlay: { root: document.body }, // 若启用dom-overlay, 则必须给定相应元素
+        };
+
+        Session(
+            renderer,                               // WebGLRenderer实例
+            {},                                     // 参见 _example
+            onSessionStart,                         // onSessionStart事件（开启xr后再调用）
+            onSessionEnd                            // onSessionEnd  事件（退出xr后再调用）
+        ).then(onSessionEnd);
+
+        function onSessionStart(xr_session) {
+
+            global_elem_state.style.display = 'none';
+
+        }
+
+        function onSessionEnd(xr_session) {
+
+            global_elem_state.style.display = 'block';
+
+            window.addEventListener('click', function once() {
+
+                xr_session.on(); // 正式开启xr
+
+                this.removeEventListener('click', once);
+
+            });
+
+        }
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+    </script>
+
+</body>
+
+</html>

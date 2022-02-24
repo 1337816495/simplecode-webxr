@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        .state {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            font-size: 2em;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="state">START</div>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        const global_elem_state = document.querySelector('.state');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, });
+
+        renderer.xr.enabled = true;
+        renderer.setSize(window.innerWidth, window.innerHeight,);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setAnimationLoop(render);
+
+        window.addEventListener('resize', onWindowResize);
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function render(timestamp, frame) {
+
+            if (renderer.xr.isPresenting) renderer.render(scene, camera);
+
+        }
+
+        Session(renderer, {}, onSessionStart, onSessionEnd).then(onSessionEnd);
+
+        function onSessionStart(xr_session) {
+
+            global_elem_state.style.display = 'none';
+
+            getXrCamera(); // LOOK
+
+        }
+
+        function onSessionEnd(xr_session) {
+
+            global_elem_state.style.display = 'block';
+
+            window.addEventListener('click', function once() {
+
+                xr_session.on();
+
+                this.removeEventListener('click', once);
+
+            });
+
+        }
+
+
+        // PART: Please coding here 👇
+        // ===================================================================================================== Start
+
+        // Description:
+        //   This function must be run after the immersive-xr is on, so i put it in the onSessionStart
+        function getXrCamera() {
+
+            if (!renderer.xr.isPresenting) return;
+
+            const camera_xr = renderer.xr.getCamera(camera);
+
+            console.log(camera_xr);
+
+            return camera_xr;
+
+        }
+
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+    </script>
+
+</body>
+
+</html>

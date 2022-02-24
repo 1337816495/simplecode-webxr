@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+</head>
+
+<body>
+    <script type="module">
+
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from './js/Session.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.0001, 10000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+
+        const plane_geometry = new THREE.PlaneGeometry(140, 80);
+        const plane_material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.1 });
+        const plane_mesh = new THREE.Mesh(plane_geometry, plane_material);
+        const line_material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const line_geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-70, -40, 0), new THREE.Vector3(-70, 40, 0), new THREE.Vector3(70, 40, 0), new THREE.Vector3(70, -40, 0)]);
+        const line = new THREE.LineLoop(line_geometry, line_material);
+        const group = new THREE.Group();
+
+        group.add(plane_mesh, line);
+
+        group.translateX(30);
+        group.translateZ(-80);
+        group.translateY(-35);
+        group.rotateX(-Math.PI / 2);
+
+        createBubble();
+        scene.add(group);
+
+        renderer.xr.enabled = true;
+        renderer.setAnimationLoop(render);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        window.addEventListener("resize", resize);
+
+        Session(renderer, undefined, onSessionSatrt, onSessionEnd).then(session => {
+
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                session.on();
+
+            });
+
+        });
+
+        function render(timestamp, frame) {
+
+            if (!frame) return;
+
+            renderer.render(scene, camera);
+
+        }
+
+        function resize() {
+            // 当使用dom-overlay时, 进入/退出AR模式会触发多次resize event
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function onSessionSatrt() { }
+
+        function onSessionEnd(session) {
+
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                session.on();
+
+            });
+
+        }
+
+        async function createBubble() {
+
+            // const coor = [
+            //     [17, 2, -10],        // 19.82422760159901  // [8.575365629190411, 1.0088665446106364, -5.044332723053183]
+            //     [5.7, 0.1, -10],     // 11.510864433221338 // [4.951843567498991, 0.08687444855261389, -8.687444855261388]
+            //     [3.2, 0.4, -10],     // 10.507140429250958 // [3.045547950507524, 0.3806934938134405, -9.517337345336012]
+            //     [1.5, 0.2, -10],     // 10.113851887386922 // [1.4831144619298446, 0.19774859492397934, -9.887429746198965]
+            //     [-1, 0.2, -10],      // 10.05186549850325  // [-0.9948402116491737, 0.19896804232983473, -9.948402116491737]
+            //     [-3.35, -0.25, -10], // 10.549170583510346 // [-3.175605108932889, -0.2369854558905141, -9.479418235620564]
+            //     [-7, 1.1, -10],      // 12.256018929489299 // [-5.7114794292274205, 0.8975181960214518, -8.159256327467743]
+            //     [-10.7, 0, -10],     // 14.645477117526761 // [-7.306009844633147, 0, -6.8280465837692965]
+            //     [-20, -1, -10],      // 22.38302928559939  // [-8.935341032175405, -0.4467670516087703, -4.467670516087702]
+            // ];
+            const coor = [
+                [8.575365629190411, 1.0088665446106364, -5.044332723053183],
+                [4.951843567498991, 0.08687444855261389, -8.687444855261388],
+                [3.045547950507524, 0.3806934938134405, -9.517337345336012],
+                [1.4831144619298446, 0.19774859492397934, -9.887429746198965],
+                [-0.9948402116491737, 0.19896804232983473, -9.948402116491737],
+                [-3.175605108932889, -0.2369854558905141, -9.479418235620564],
+                [-5.7114794292274205, 0.8975181960214518, -8.159256327467743],
+                [-7.306009844633147, 0, -6.8280465837692965],
+                [-8.935341032175405, -0.4467670516087703, -4.467670516087702],
+            ];
+            const font = await new Promise(resolve => {
+
+                new THREE.FontLoader().load("./font/microsoft_yahei_regular.typeface.json", font => {
+
+                    resolve(font);
+
+                });
+
+            });
+            const config = { font, size: 0.18, height: 0.00001, bevelEnabled: false, curveSegments: 12 };
+
+            const tag = ["融创香璟台东苑", "华润时光里", "正城南郡", "时尚大厦", "金城府", "北大资源颐和翡翠府", "黄金时代", "朗基和今缘", "烂尾楼"].map((item, index) => {
+
+                const text = createRingText(item);
+
+                text.position.set(...coor[index]);
+
+                scene.add(text);
+
+                return text;
+
+            });
+
+            void (function animate() {
+
+                requestAnimationFrame(animate);
+
+                tag.map(item => item.lookAt(0, 0, 0));
+
+            }());
+
+            function createRing() {
+
+                const geometry_1 = new THREE.RingGeometry(0.08, 0.09, 32);
+                const geometry_2 = new THREE.RingGeometry(0.05, 0.055, 32);
+                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const mesh_1 = new THREE.Mesh(geometry_1, material);
+                const mesh_2 = new THREE.Mesh(geometry_2, material);
+                const group = new THREE.Group();
+
+                group.add(mesh_1, mesh_2);
+
+                return group;
+
+            }
+
+            function createText(text) {
+
+                const geometry = new THREE.TextGeometry(text, config);
+                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const mesh = new THREE.Mesh(geometry, material);
+
+                return mesh;
+
+            }
+
+            function createRingText(text) {
+
+                const mesh_ring = createRing();
+                const mesh_text = createText(text);
+                const group = new THREE.Group();
+
+                mesh_text.translateX(0.18);
+                mesh_text.translateY(-0.09);
+
+                group.add(mesh_ring, mesh_text);
+
+                return group;
+
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>

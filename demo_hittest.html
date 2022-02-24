@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hitTest AR demo</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            background-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        init();
+
+        function init() {
+
+            // hitTest
+            let hitTestPoint = null;
+            let hitTestSource = null;
+            let hitTestSourceRequested = false;
+
+            // 普通 THREE
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20);
+            const geometry = new THREE.BoxGeometry(0.15, 0.15, 0.15).translate(0, 0.075, 0);
+
+            hitTestPoint = new THREE.Mesh(
+                new THREE.CircleGeometry(0.01, 16).rotateX(- Math.PI / 2),
+                new THREE.MeshBasicMaterial({ color: 0xff0000 })
+            );
+
+            hitTestPoint.matrixAutoUpdate = false;
+            hitTestPoint.visible = false;
+            scene.add(hitTestPoint);
+
+            // renderer
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+
+            renderer.setAnimationLoop(render);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+
+            // controller
+            const controller = renderer.xr.getController(0);
+
+            controller.addEventListener("select", onSelect);
+
+            scene.add(controller);
+
+            // 开启 Session
+            Session(renderer, { requiredFeatures: ['hit-test'] }).then(session => {
+
+                const p = document.createElement("p");
+
+                p.innerHTML = "点击开始";
+                p.style.position = "fixed";
+                p.style.top = "50%";
+                p.style.left = "50%";
+                p.style.color = "#fff";
+                p.style.fontSize = "2em";
+                p.style.transform = "translate(-50%, -50%)";
+
+                document.body.prepend(p);
+                document.body.addEventListener("click", function onClick() {
+
+                    this.removeEventListener("click", onClick);
+
+                    session.on();
+
+                });
+
+
+            });
+
+            function onSelect() {
+
+                if (!hitTestPoint.visible) return;
+
+                const material = new THREE.MeshNormalMaterial();
+                const box = new THREE.Mesh(geometry, material);
+
+                box.position.setFromMatrixPosition(hitTestPoint.matrix);
+
+                scene.add(box);
+
+            }
+
+            function render(timestamp, frame) {
+
+                // 没有进入 AR Session
+                if (!frame) return;
+
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                if (hitTestSourceRequested === false) {
+
+                    session.requestReferenceSpace('viewer').then(function (referenceSpace) {
+
+                        session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
+
+                            hitTestSource = source;
+
+                        });
+
+                    });
+
+                    session.addEventListener('end', function () {
+
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+
+                    });
+
+                    hitTestSourceRequested = true;
+
+                }
+
+                if (hitTestSource) {
+
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+                    if (hitTestResults.length) {
+
+                        const hit = hitTestResults[0];
+
+                        hitTestPoint.visible = true;
+                        hitTestPoint.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+
+                    } else {
+
+                        hitTestPoint.visible = false;
+
+                    }
+
+                }
+
+                renderer.render(scene, camera);
+
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

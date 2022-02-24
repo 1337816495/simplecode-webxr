@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        .state {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            font-size: 2em;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="state">START</div>
+
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        const global_elem_state = document.querySelector('.state');
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, });
+
+        renderer.xr.enabled = true;
+        renderer.setSize(window.innerWidth, window.innerHeight,);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setAnimationLoop(render);
+
+        window.addEventListener('resize', onWindowResize);
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function render(timestamp, frame) {
+
+            if (!renderer.xr.isPresenting) return;
+
+            renderer.render(scene, camera);
+
+        }
+
+        Session(renderer, {}, onSessionStart, onSessionEnd).then(onSessionEnd);
+
+        function onSessionStart(xr_session) {
+
+            global_elem_state.style.display = 'none';
+
+        }
+
+        function onSessionEnd(xr_session) {
+
+            global_elem_state.style.display = 'block';
+
+            window.addEventListener('click', function once() {
+
+                xr_session.on();
+
+                this.removeEventListener('click', once);
+
+            });
+
+        }
+
+
+        // PART: Please coding here 👇
+        // ===================================================================================================== Start
+        main();
+
+        function main() {
+
+            const render = (timestamp, frame) => {
+
+                if (!renderer.xr.isPresenting) return;
+
+                renderer.render(scene, camera);
+
+                getXrViewerPose(frame);
+
+            };
+
+            renderer.setAnimationLoop(render);
+
+        }
+
+        // Description:
+        //   This function must be run with xrFrame, so i put it in the new render function. It prints the pose infomation once per second.
+        let count = 0;
+
+        function getXrViewerPose(frame_xr) {
+
+            // 视图集合
+            //   🔗https://developer.mozilla.org/en-US/docs/Web/API/XRView
+
+            // 位置、方向、变换矩阵
+            //   🔗https://developer.mozilla.org/en-US/docs/Web/API/XRRigidTransform
+
+            // position:
+            //   它是一个用于描述位置信息的坐标, 数据格式是一个具有四个属性（x、y、z、y）的普通对象, 其中属性w总是为1, 比如
+            //   {x: -0.3126380145549774, y: -0.34387901425361633, z: -0.39460504055023193, w: 1}
+
+            // orientation:
+            //   它是一个用于描述旋转信息的四元数, 数据格式是一个具有四个属性（x、y、z、y）的普通对象, 比如
+            //   {x: -0.06293190413816015, y: -0.19456942672935154, z: -0.01636656613185102, w: 0.97873104024385}
+
+            // matrix:
+            //   它是一个变换矩阵（这个变换矩阵描述什么呢?位移?旋转?缩放?）, 数据格式是一个具有16个元素的Float32Array
+
+            const space = renderer.xr.getReferenceSpace();    // 参考空间
+
+            const pose = frame_xr.getViewerPose(space);       // 姿态（进入xr模式后的前几帧, pose可能为null, 因此下文使用了可选链）
+
+            const views = pose?.views;                        // 视图集合
+
+            const view = views?.[0];                          // 视图
+
+            const matrix_projection = view?.projectionMatrix; // 投影变换矩阵
+
+            const position = view?.transform.position;        // 位置
+
+            const orientation = view?.transform.orientation;  // 方向
+
+            const matrix = view?.transform.matrix;            // 变换矩阵
+
+            if (count++ % 60 !== 0) return;
+
+            console.log('Projection matrix: ', matrix_projection);
+            console.log('Position         : ', position);
+            console.log('Orientation      : ', orientation);
+            console.log('Transform matrix : ', matrix);
+            console.log('---------------------------------------------------------------------------------------------------------------------------------------')
+
+        }
+
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+    </script>
+
+</body>
+
+</html>

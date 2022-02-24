@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        div.panel {
+            float: left;
+            margin: 20px 0 0 20px;
+        }
+
+        div,
+        i {
+            color: rgb(255, 255, 255);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="panel">
+        <div>
+            x: <i id="x"></i>
+        </div>
+        <div>
+            y: <i id="y"></i>
+        </div>
+        <div>
+            z: <i id="z"></i>
+        </div>
+        <div>
+            o: <i id="o"></i>
+        </div>
+    </div>
+    <script type="module">
+
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+        /// TODO 这种糟糕的demo没有任何学习的价值
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        const elem_x = document.getElementById("x");
+        const elem_y = document.getElementById("y");
+        const elem_z = document.getElementById("z");
+        const elem_o = document.getElementById("o");
+
+        const three_coor_origin = new THREE.Vector3();
+        const three_scene = new THREE.Scene();
+        const three_camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.0001, 10000);
+        const three_camerahelper = new THREE.CameraHelper(three_camera);
+        const three_renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+        const three_axeshelper = new THREE.AxesHelper(2);
+
+        const three_geometry_projection_plane = new THREE.PlaneGeometry(1000, 1000);
+        const three_material_projection_plane = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.1, });
+        const three_mesh_projection_plane = new THREE.Mesh(three_geometry_projection_plane, three_material_projection_plane);
+
+        three_renderer.xr.enabled = true;
+        three_renderer.setAnimationLoop(render);
+        three_renderer.setPixelRatio(window.devicePixelRatio);
+        three_renderer.setSize(window.innerWidth, window.innerHeight);
+
+        three_mesh_projection_plane.translateZ(-200);
+
+        three_scene.add(three_camerahelper, three_mesh_projection_plane, three_axeshelper);
+
+        window.addEventListener("resize", resize);
+
+        const config_session = {
+
+            requiredFeatures: ["dom-overlay"],
+
+            domOverlay: { root: document.body },
+
+        };
+
+        Session(three_renderer, config_session, onSessionStart, onSessionEnd).then(xr_session => {
+
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                xr_session.on();
+                raycaster();
+
+            });
+
+        });
+
+        function render(timestamp, frame) {
+
+            if (!frame) return;
+
+            three_renderer.render(three_scene, three_camera);
+
+            const { x, y, z } = three_camera.position;
+
+            elem_x.textContent = x.toFixed(3);
+            elem_y.textContent = y.toFixed(3);
+            elem_z.textContent = z.toFixed(3);
+            elem_o.textContent = three_camera.position.distanceTo(three_coor_origin).toFixed(3);
+
+        }
+
+        function resize() {
+
+            // 当使用dom-overlay时, 进入/退出AR模式会触发多次resize event
+            three_camera.aspect = window.innerWidth / window.innerHeight;  // 更新视锥体长宽比
+            three_camera.updateProjectionMatrix();                         // 更新投影矩阵
+
+            three_renderer.setSize(window.innerWidth, window.innerHeight); // 更新画布尺寸
+
+        }
+
+        function onSessionStart() { }
+
+        function onSessionEnd(xr_session) {
+
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                xr_session.on();
+
+            });
+
+        }
+
+        function raycaster() {
+
+            const three_raycaster = new THREE.Raycaster();
+            const three_coor_screen = new THREE.Vector2();
+
+            window.addEventListener("mousemove", onMouseMove, false);
+
+            function onMouseMove() {
+
+                three_raycaster.setFromCamera(three_coor_screen, three_camera);
+
+                const three_coor_intersection = three_raycaster.intersectObject(three_mesh_projection_plane)[0].point;
+                const three_material = new THREE.PointsMaterial({ color: Math.floor(Math.random() * 16777216), size: 5, sizeAttenuation: false });
+                const three_geometry = new THREE.BufferGeometry();
+                const { x, y, z } = three_coor_intersection;
+
+                three_geometry.setAttribute("position", new THREE.Float32BufferAttribute([x, y, z], 3));
+
+                const three_mesh = new THREE.Points(three_geometry, three_material);
+
+                three_scene.add(three_mesh);
+                console.log(x, y, z);
+
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>

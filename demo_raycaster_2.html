@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            position: relative;
+            background-color: #000;
+        }
+
+        .tip-start {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            color: rgb(255, 255, 255);
+            font-size: 2em;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tip-start">START</div>
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+        // PART: Global variable
+        // ===================================================================================================== Start
+        const arSession = Session;
+        const elem_tip_start = document.querySelector(".tip-start");
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+
+        // PART: Three
+        // ===================================================================================================== Start
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 20);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+        const light_ambient = new THREE.AmbientLight(0x404040);
+        const light_point = new THREE.PointLight(0xffffff, 1, 20);
+
+        scene.add(light_ambient, light_point);
+
+        renderer.xr.enabled = true;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setAnimationLoop((timestamp, frame) => {
+
+            if (!frame) return;
+
+            renderer.render(scene, camera);
+
+        });
+
+        window.onresize = () => {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        };
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+
+        // PART: Three
+        // ===================================================================================================== Start
+        const models = createBoxSwarm();
+        const anchor = createAnchor();
+
+        scene.add(models, anchor);
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+
+        // PART: Controller & Ray
+        // ===================================================================================================== Start
+        const raycaster = new THREE.Raycaster();
+        const controller = renderer.xr.getController(0);
+        const onControllerSelect = _ => {
+
+            if (!renderer.xr.isPresenting) return;
+
+            // 如果 controller 没有父对象, 那么它的 matrix 就等于 matrixWorld
+            const vector3_origin = new THREE.Vector3(0, 0, 0).applyMatrix4(controller.matrix);
+            const vector3_target = new THREE.Vector3(0, 0, -1).applyMatrix4(controller.matrix).sub(vector3_origin).normalize();
+
+            const intersectors = [];
+
+            raycaster.set(vector3_origin, vector3_target);
+            raycaster.intersectObject(models, true, intersectors);
+
+            anchor.visible = false;
+
+            if (!intersectors.length) return;
+
+            const object = intersectors[0].object;
+            const point = intersectors[0].point;
+
+            object.material.color = new THREE.Color(0xff0000);
+
+            anchor.visible = true;
+            anchor.position.copy(point);
+
+        };
+
+        // controller 只有 select/selectend/selectstart/squeeze/sqeezend/sqeezestart 事件
+        // 其中 select 事件对应 html 的 click 事件
+        window.onclick = onControllerSelect;
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+
+        // PART: AR Session
+        // ===================================================================================================== Start
+        const config_session = { requiredFeatures: ["dom-overlay"], domOverlay: { root: document.body } };
+        const onArSessionStart = () => { };
+        const onArSessionEnd = ar_session => {
+
+            elem_tip_start.style.display = "block";
+
+            document.body.addEventListener("click", function onClick() {
+
+                elem_tip_start.style.display = "none";
+
+                this.removeEventListener("click", onClick);
+
+                ar_session.on();
+
+            });
+
+        };
+
+        arSession(renderer, config_session, onArSessionStart, onArSessionEnd).then(ar_session => {
+
+            document.body.addEventListener("click", function onClick() {
+
+                elem_tip_start.style.display = "none";
+
+                this.removeEventListener("click", onClick);
+
+                ar_session.on();
+
+            });
+
+        });
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+
+
+        // PART: Tool
+        // ===================================================================================================== Start
+        function createBoxSwarm() {
+
+            const group = new THREE.Group();
+
+            for (let i = 0; i < 25; i++) {
+
+                const color = THREE.MathUtils.randInt(0, 16777215);
+                const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                const material = new THREE.MeshPhongMaterial({ color });
+                const mesh = new THREE.Mesh(geometry, material);
+
+                const coor_x = i % 5 * 0.13 - 0.4;
+                const coor_y = Math.floor(i / 5) * 0.13 - 0.4;
+                const coor_z = -1;
+
+                mesh.position.set(coor_x, coor_y, coor_z);
+                group.add(mesh);
+
+            }
+
+            return group;
+
+        }
+
+        function createAnchor() {
+
+            const material = new THREE.SpriteMaterial({ color: 0xffffff, sizeAttenuation: false });
+            const sprite = new THREE.Sprite(material);
+
+            material.depthTest = false;
+
+            sprite.orderRander = 1;
+            sprite.scale.set(0.01, 0.01, 1);
+            sprite.visible = false;
+
+            return sprite;
+
+        }
+        // ----------------------------------------------------------------------------------------------------- E n d
+
+    </script>
+
+</body>
+
+</html>

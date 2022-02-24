@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/base.css">
+    <style>
+        body {
+            background-color: #000;
+        }
+    </style>
+    <title>Document</title>
+</head>
+
+<body>
+    <script type="module">
+
+        import * as THREE from "./js/three.module.js";
+        import { Session } from "./js/Session.js";
+
+
+        // Step 1：使用 THREE 的 WebGLRenderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,                // 开启透明度（必选）
+            antialias: true,            // 开启抗锯齿
+            preserveDrawingBuffer: true // 保留缓存直到手动清除或被覆盖
+        });
+
+        renderer.xr.enabled = true;
+        renderer.setAnimationLoop(render);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Step 2：开启 AR
+        Session(renderer).then(session => {
+            // AR 必须在用户主动与页面交互的前提下，才能启动！
+            // 所以为 body 添加了一个“点击开启AR”的事件！
+            // 该事件只能使用一次！
+            const p = document.createElement("p");
+
+            p.innerHTML = "点击开始";
+            p.style.position = "fixed";
+            p.style.top = "50%";
+            p.style.left = "50%";
+            p.style.color = "#fff";
+            p.style.fontSize = "2em";
+            p.style.transform = "translate(-50%, -50%)";
+
+            document.body.prepend(p);
+            document.body.addEventListener("click", function onClick() {
+
+                this.removeEventListener("click", onClick);
+
+                session.on();
+
+            });
+
+
+        });
+
+        // Step 3：开启帧循环，用于实时更新 THREE 画面
+        function render(timestamp, frame) {
+
+            if (!frame) return;
+
+            renderer.render(scene, camera);
+
+        }
+
+        // TODO: 待完善
+        // Step 4: 地图瓦片
+        downloadTile(808, 420, 10);
+
+        // 描述: 根据wgs84坐标来求算瓦片坐标
+        // 参数:
+        //      lon : 经度
+        //      lat : 纬度
+        //      zoom: 缩放级别
+        // 返回: Array, 存储瓦片坐标x、y的数组, 格式为[x, y]
+        // 补充: Google Map、Open Street Map、高德地图采用的瓦片坐标系是一致的, 该函数采用了此种瓦片坐标系
+        function convertWgs84ToTile(lon, lat, zoom) {
+
+            const x = Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
+            const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
+
+            return [x, y];
+
+        }
+
+        // 描述: 根据瓦片坐标来求算wgs84坐标
+        // 参数:
+        //      x   : x(瓦片坐标)
+        //      y   : y(瓦片坐标)
+        //      zoom: 缩放级别
+        // 返回: Array, 存储WGS84坐标lon、lat的数组, 格式为[lon、lat]
+        // 补充: Google Map、Open Street Map、高德地图采用的瓦片坐标系是一致的, 该函数采用了此种瓦片坐标系
+        function convertTileToWgs84(x, y, zoom) {
+
+            const lon = x / Math.pow(2, zoom) * 360 - 180;
+            const temp = Math.PI - 2 * Math.PI * y / Math.pow(2, zoom);
+            const lat = 180 / Math.PI * Math.atan(0.5 * (Math.exp(temp) - Math.exp(-temp)));
+
+            return [lon, lat];
+
+        }
+
+        // 描述: 根据wgs84坐标来求算像素坐标(像素坐标是指一幅瓦片上的一个像素相对当前瓦片的坐标)
+        // 参数:
+        //      lon : 经度
+        //      lat : 纬度
+        //      zoom: 缩放级别
+        // 返回: Array, 存储像素坐标x、y的数组, 格式为[x, y]
+        // 补充: Google Map、Open Street Map、高德地图采用的瓦片坐标系是一致的, 该函数采用了此种瓦片坐标系
+        function convertWgs84ToPixel(lon, lat, zoom) {
+
+            const x = Math.floor((lon + 180) / 360 * Math.pow(2, zoom) * 256 % 256);
+            const y = Math.floor(((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom) + Math.pow(2, zoom) / 2) * 256 % 256);
+
+            return [x, y];
+
+        }
+
+        // 描述: 根据瓦片坐标与像素坐标来求算wgs84坐标
+        // 参数:
+        //      x_pixel: 像素坐标x
+        //      y_pixel: 像素坐标y
+        //      x_tile : 瓦片坐标x
+        //      y_tile : 瓦片坐标y
+        //      zoom   : 缩放等级
+        // 返回: Array, 存储wgs84坐标lon、lat的数组, 格式为[lon, lat]
+        // 补充: Google Map、Open Street Map、高德地图采用的瓦片坐标系是一致的, 该函数采用了此种瓦片坐标系
+        function convertPixelTileToWgs84(x_pixel, y_pixel, x_tile, y_tile, zoom) {
+
+            const lon = (x_tile + x_pixel / 256) / Math.pow(2, zoom) * 360 - 180;
+            const lat = Math.atan(Math.sinh(Math.PI - 2 * Math.PI * (y_tile + y_pixel / 256) / Math.pow(2, zoom))) * 180 / Math.PI;
+
+            return [lon, lat];
+
+        }
+
+        function downloadTile(x, y, zoom) {
+
+            const url_osm_base = "https://a.tile.osm.org";
+            const url_osm_tile = url_osm_base + "/" + zoom + "/" + x + "/" + y + ".png";
+            const loader = new THREE.TextureLoader();
+
+            // 跨域加载图片
+            loader.crossOrigin = true;
+            loader.load(url_osm_tile, callabck);
+
+            function callabck(texture) {
+
+                console.log("The tile download was successful");
+
+                const geometry = new THREE.PlaneGeometry();
+                const material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+
+                mesh.position.set(0, -0.6, -1);
+                // mesh.rotateX(-Math.PI / 2);
+
+                scene.add(mesh);
+
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>
